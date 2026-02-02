@@ -1,0 +1,5 @@
+# Conexões automáticas ao PostgreSQL
+# Formato: hostname:port:database:username:password
+postgres:5432:postgres:n8n:n8n_password
+postgres:5432:n8n:n8n:n8n_password
+postgres:5432:chatbot:n8n:n8n_password

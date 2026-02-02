@@ -1,0 +1,1091 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        10352,
+        1248
+      ],
+      "id": "b1be2b59-7989-4b69-b34e-5348f411cd47",
+      "name": "Webhook - Chat Endpoint",
+      "webhookId": "0297110d-f931-45fb-97dc-47f123d8e91d",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rdPfegtIDJxjov6d",
+          "name": "X-API-Key Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c674188-8544-47d2-be07-fa26005a2563",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        11312,
+        1216
+      ],
+      "id": "d6c2c63d-9caf-454b-968d-2e49a0b82162",
+      "name": "User Exists?"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        11056,
+        1232
+      ],
+      "id": "65e0ca68-5930-4414-92fc-b6b31b178549",
+      "name": "Check User in DB",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "bloqueado": false,
+            "nome": "={{ $('Input valid?').item.json.nome }}",
+            "email": "={{ $('Input valid?').item.json.email }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nome",
+              "displayName": "nome",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "bloqueado",
+              "displayName": "bloqueado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        11536,
+        1328
+      ],
+      "id": "153dff9d-b987-4be7-8359-4464a522021b",
+      "name": "Create New User",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c674188-8544-47d2-be07-fa26005a2563",
+              "leftValue": "={{ $json.bloqueado }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        11760,
+        1200
+      ],
+      "id": "06f67aef-f826-4866-a9ed-5b116342f2f4",
+      "name": "Is User Blocked?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ════════════════════════\n// Anti Prompt Injection\n// ════════════════════════\n\nconst suspiciousPatterns = [\n  // Tentativas de ignorar instruções\n  /ignore\\s+(previous|above|all)\\s+(instructions|rules|prompts)/gi,\n  /forget\\s+(everything|all|previous)/gi,\n  /disregard\\s+(previous|above|all)/gi,\n\n  // Tentativas de assumir outro papel\n  /you\\s+are\\s+now/gi,\n  /act\\s+as\\s+(a\\s+)?(?!customer|user)/gi,\n  /pretend\\s+to\\s+be/gi,\n  /roleplay\\s+as/gi,\n\n  // Tentativas de extrair o prompt do sistema\n  /show\\s+(me\\s+)?(your\\s+)?(system\\s+)?(prompt|instructions)/gi,\n  /what\\s+(is|are)\\s+your\\s+(instructions|rules|prompt)/gi,\n  /reveal\\s+your\\s+(system\\s+)?(prompt|instructions)/gi,\n\n  // Injeção de comandos em português\n  /ignore\\s+(as\\s+)?(instruções|regras)\\s+(anteriores|acima)/gi,\n  /esqueça\\s+(tudo|todas)\\s+(as\\s+)?(instruções|regras)/gi,\n  /você\\s+agora\\s+é/gi,\n  /atue\\s+como/gi,\n  /finja\\s+ser/gi,\n\n  // Tentativas de escapar delimitadores\n  /```[\\s\\S]*system[\\s\\S]*```/gi,\n  /\\[system\\]/gi,\n  /<\\|im_start\\|>/gi,\n  /<\\|im_end\\|>/gi,\n\n  // Tentativas de injetar JSON/código\n  /\\{\\s*\"role\"\\s*:\\s*\"system\"/gi,\n  /\\{\\s*\"role\"\\s*:\\s*\"assistant\"/gi,\n];\n\nconst MAX_LENGTH = 2000;\n\n// Loop sobre todos os items do input\nfor (const item of $input.all()) {\n  const message = item.json.message || item.json.mensagem_usuario || '';\n\n  let isPromptInjection = false;\n  let detectedPatterns = [];\n\n  // Verifica cada padrão suspeito\n  for (const pattern of suspiciousPatterns) {\n    if (pattern.test(message)) {\n      isPromptInjection = true;\n      detectedPatterns.push(pattern.source);\n    }\n  }\n\n  // Detecta mensagens excessivamente longas\n  if (message.length > MAX_LENGTH) {\n    isPromptInjection = true;\n    detectedPatterns.push(`Message too long: ${message.length} chars (max: ${MAX_LENGTH})`);\n  }\n\n  // Detecta múltiplas quebras de linha seguidas\n  if (/\\n{5,}/.test(message)) {\n    isPromptInjection = true;\n    detectedPatterns.push('Multiple consecutive newlines detected');\n  }\n\n  // Adiciona campos ao item\n  item.json.prompt_injection_detected = isPromptInjection;\n  item.json.prompt_injection_patterns = detectedPatterns;\n  item.json.sanitized_message = message.trim().substring(0, MAX_LENGTH);\n  item.json.original_message_length = message.length;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12208,
+        1312
+      ],
+      "id": "e44a1064-9313-42d4-bbae-03b2ec761454",
+      "name": "Anti Prompt Injection"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c674188-8544-47d2-be07-fa26005a2563",
+              "leftValue": "={{ $json.prompt_injection_detected }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        12416,
+        1312
+      ],
+      "id": "4eeaadb2-81b9-4294-b69b-543950c00c2d",
+      "name": "Prompt Injection?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Não foi possível processar sua mensagem. Por favor, reformule sua pergunta.\", \"bloqueado\": false } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "name": "Respond Prompt Injection - 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        12656,
+        1200
+      ],
+      "id": "e0c68e99-57c6-48c5-b0a0-8dde0d7a80a6"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"blocked\", \"message\": \"Você está bloqueado. Para receber mensagens novamente, clique em desbloquear.\", \"email\": $json.email } }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "name": "Respond Blocked - 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        12000,
+        1120
+      ],
+      "id": "e271efbd-4498-4245-9da3-9c35bab6c461"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================\n// Validação de Input (Webhook)\n// ==================\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/;\n\nfor (const item of $input.all()) {\n  // 1) Dados em item.json.body ou item.json\n  const body = item.json.body ?? item.json;\n\n  // 2) Garante string, remove espaços e padroniza email em lowercase\n  const nome = String(body.nome ?? '').trim();\n  const email = String(body.email ?? '').trim().toLowerCase();\n  const message = String(body.message ?? '').trim();\n\n  // 3) Validações\n  let error = null;\n\n  // Nome obrigatório (mínimo 3, máximo 255)\n  if (!nome) error = 'Nome é obrigatório';\n  else if (nome.length < 3) error = 'Nome deve ter no mínimo 3 caracteres';\n  else if (nome.length > 255) error = 'Nome deve ter no máximo 255 caracteres';\n\n  // Email obrigatório e formato válido\n  if (!error) {\n    if (!email) error = 'Email é obrigatório';\n    else if (!emailRegex.test(email)) error = 'Email inválido. Use o formato: usuario@exemplo.com';\n  }\n\n  // Mensagem obrigatória (máximo 5000)\n  if (!error) {\n    if (!message) error = 'Mensagem é obrigatória';\n    else if (message.length > 5000) error = 'Mensagem muito longa (máximo 5000 caracteres)';\n  }\n\n  // 4) Calcula status final\n  const valid = !error;\n\n  // 5) Output com SOMENTE estes campos\n  item.json = {\n    nome,\n    email,\n    message,\n    valid,\n    errors: error,\n  };\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10560,
+        1248
+      ],
+      "id": "b48a1631-46a6-4129-9f12-d0f0ab6ade1d",
+      "name": "Validar Input do Webhook",
+      "retryOnFail": true,
+      "waitBetweenTries": 1000,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c674188-8544-47d2-be07-fa26005a2563",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        10800,
+        1248
+      ],
+      "id": "34ab1332-8230-4814-b9fd-620c0d036218",
+      "name": "Input valid?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": false, \"error\": \"Dados inválidos. Verifique os campos e tente novamente.\", \"validation_errors\": \"{{ $json.errors }}\", \"timestamp\": \"{{ $now.toMillis() }}\"}  ",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "name": "Respond Valid - 422",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        11056,
+        1408
+      ],
+      "id": "6caec72f-ff98-4bf9-ae62-f00c81c7e934"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "add62814-9ab0-489b-bf8e-3e53554e809f",
+              "name": "message",
+              "value": "={{ $('Webhook - Chat Endpoint').item.json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        12000,
+        1312
+      ],
+      "id": "7deb7314-c0da-48be-8e34-839ba7870264",
+      "name": "message"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Buscar últimas 5 interações\nSELECT\n  id,\n  message as mensagem_usuario,\n  response as mensagem_bot,\n  created_at,\n  responded_at\nFROM public.interactions\nWHERE user_id = $1\n  AND response IS NOT NULL\n  AND is_active = true\nORDER BY created_at DESC\nLIMIT 5;",
+        "options": {
+          "queryReplacement": "={{ $('Prompt Injection?').item.json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        13152,
+        1392
+      ],
+      "id": "72aaa06c-5d3e-41bd-86cc-c03f032d5bae",
+      "name": "Buscar Histórico",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ $json.llm_system_prompt }}"
+            },
+            {
+              "content": "=HISTÓRICO DA CONVERSA:\n{{ $json.llm_user_messages.map(m => (m.role === 'user' ? 'Usuário' : 'Assistente') + ': ' + m.content).join('\\n') }}\n\nMENSAGEM ATUAL DO USUÁRIO:\n{{ $json.llm_current_message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": "={{ $json.llm_max_tokens }}",
+          "temperature": "={{ $json.llm_temperature }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        14080,
+        1392
+      ],
+      "id": "70eda70f-8e58-4482-bf5b-cadafcf60ecf",
+      "name": "Message a model3",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "openAiApi": {
+          "id": "IRshHchmIZ03HOzs",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1a813486-719c-4ecc-bdb1-8a0fa3615ef3",
+              "name": "id",
+              "value": "={{ $('Prompt Injection?').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "86a962e5-d72a-4779-a9da-fcfd4724d8ce",
+              "name": "nome",
+              "value": "={{ $('Prompt Injection?').item.json.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "b86a8728-8c3f-4607-8740-8c49c2a6d8a2",
+              "name": "message",
+              "value": "={{ $('message').item.json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "5a7331f4-44ee-4c03-8bf4-863af16c12d1",
+              "name": "historico",
+              "value": "={{ $json.historico }}",
+              "type": "array"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        13600,
+        1392
+      ],
+      "id": "2f5b286c-9721-484e-9831-7fb337ea1b5c",
+      "name": "Normalize Prompt"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Fechar interação anterior do usuário (marca que ele respondeu)\n-- Isso permite que o reminder system funcione corretamente\nUPDATE public.interactions\nSET responded_at = NOW()\nWHERE user_id = $1\n  AND responded_at IS NULL\n  AND is_active = true\nRETURNING id, user_id, responded_at;",
+        "options": {
+          "queryReplacement": "={{ [$json.id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        12656,
+        1392
+      ],
+      "id": "3efbbdaf-6366-4968-9626-74cfdf246960",
+      "name": "Fechar Interação Anterior",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO interactions (\n  user_id,\n  message,\n  is_active,\n  created_at\n)\nVALUES (\n  $1,\n  $2,\n  true,\n  NOW()\n)\nRETURNING id, user_id, message, created_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Prompt Injection?').item.json.id,\n  $('Prompt Injection?').item.json.message\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        12896,
+        1392
+      ],
+      "id": "25fc41cb-f105-4d16-a17d-e1a46685e2dd",
+      "name": "Inserir Interação",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Atualizar interação c/ resposta da LLM (NÃO preenche responded_at)\n-- responded_at só é preenchido quando USUÁRIO envia próxima mensagem\nUPDATE public.interactions\nSET\n  response = $1,\n  llm_message_id = $2\nWHERE id = $3\nRETURNING\n  id,\n  user_id,\n  message,\n  response,\n  llm_message_id,\n  created_at,\n  responded_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.output[0].content[0].text,\n  $json.output[0].id,\n  $('Inserir Interação').item.json.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        14448,
+        1392
+      ],
+      "id": "a8bf1e83-e5d0-4579-b098-7e73e6ecbc5c",
+      "name": "Update Interação",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "historico",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        13376,
+        1392
+      ],
+      "id": "58dbc3da-4ada-4f7a-819a-c7d9a4388f9a",
+      "name": "historico"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ccc43e60-b2cc-42cc-bb4c-a50f475adefd",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "64721f99-8a4f-4d9a-8563-d6e70d6d4945",
+              "name": "response",
+              "value": "={{ $json.response }}",
+              "type": "string"
+            },
+            {
+              "id": "ace7fcfc-49b2-42e6-a3ca-f3d81d1a9bce",
+              "name": "responded_at",
+              "value": "={{ $json.responded_at }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        14656,
+        1392
+      ],
+      "id": "769f56c2-d341-4717-9b80-80513f915b21",
+      "name": "Normalize Respond"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"response\": $json.response, \"timestamp\": $now.toISO() } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        14896,
+        1392
+      ],
+      "id": "1c429c36-b17c-444c-a377-46a243b5dffe",
+      "name": "Respond to Webhook - 200"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Cria um novo agendamento. Use APENAS quando o usuário CONFIRMAR (disse 'sim', 'confirmo'). Forneça a query SQL. IMPORTANTE: user_id é UUID e DEVE estar entre aspas simples. Formato: INSERT INTO agendamentos (user_id, data_agendada, status, mensagem) VALUES ('UUID-DO-USUARIO', '2026-02-03 10:00:00', 'pendente', 'Consulta') RETURNING id, data_agendada, status;",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query', 'A query SQL INSERT completa para criar o agendamento', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        13920,
+        1712
+      ],
+      "id": "707468d4-bf6a-40e8-9f0e-440b8808e7df",
+      "name": "Criar Agendamento",
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Consulta agendamentos do usuário. Use SEMPRE antes de cancelar ou remarcar para obter o ID real. user_id entre aspas. Exemplo: SELECT id, data_agendada, status FROM agendamentos WHERE user_id = '00428a71-6e32-41ad-a319-9fad97b02960' AND status = 'pendente';",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query', 'A query SQL SELECT completa para consultar agendamentos', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        14096,
+        1712
+      ],
+      "id": "46a5ffbd-3c0a-4f57-8ee4-08e9e47a1f86",
+      "name": "Consultar Agendamentos",
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Cancela um agendamento. PRIMEIRO consulte para obter o ID real do agendamento. Use o ID retornado pela consulta. Exemplo: UPDATE agendamentos SET status = 'cancelado', updated_at = NOW() WHERE id = 'e5ab03ad-d232-4921-b0d0-906e8b0513ab' AND user_id = '00428a71-6e32-41ad-a319-9fad97b02960' RETURNING id, status;",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query', 'A query SQL UPDATE completa para cancelar o agendamento', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        14304,
+        1712
+      ],
+      "id": "2cb4a0dc-2289-4375-8d33-0c70b38453c4",
+      "name": "Cancelar Agendamento",
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Remarca agendamento para nova data. PRIMEIRO consulte para obter o ID real. Use o ID retornado. Exemplo: UPDATE agendamentos SET data_agendada = '2026-02-07 16:00:00', updated_at = NOW() WHERE id = 'e5ab03ad-d232-4921-b0d0-906e8b0513ab' AND user_id = '00428a71-6e32-41ad-a319-9fad97b02960' RETURNING id, data_agendada;",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query', 'A query SQL UPDATE completa para remarcar o agendamento', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        14528,
+        1696
+      ],
+      "id": "46adbce6-c9c2-4164-81c4-aabb6c4fec66",
+      "name": "Remarcar Agendamento",
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const TIMEZONE = 'America/Sao_Paulo';\n\nconst now = new Date();\n\n// Data por extenso no timezone correto\nconst dataAtual = now.toLocaleDateString('pt-BR', {\n  timeZone: TIMEZONE,\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\n// Hora no timezone correto\nconst horaAtual = now.toLocaleTimeString('pt-BR', {\n  timeZone: TIMEZONE,\n  hour: '2-digit',\n  minute: '2-digit'\n});\n\n// Data de amanhã (para referência da LLM)\nconst tomorrow = new Date(now);\ntomorrow.setDate(tomorrow.getDate() + 1);\nconst dataAmanha = tomorrow.toLocaleDateString('pt-BR', {\n  timeZone: TIMEZONE,\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\n// Data curta para comparações (dd/mm/yyyy)\nconst dataCurta = now.toLocaleDateString('pt-BR', { timeZone: TIMEZONE });\nconst dataAmanhaCurta = tomorrow.toLocaleDateString('pt-BR', { timeZone: TIMEZONE });\n\n// Data ISO para queries SQL\nconst dataISOHoje = now.toISOString().split('T')[0];\nconst dataISOAmanha = tomorrow.toISOString().split('T')[0];\n\n// Helper: adiciona mensagem ao array apenas se tiver conteúdo\nconst pushIf = (arr, role, content) => {\n  const text = String(content ?? '').trim();\n  if (text) arr.push({ role, content: text });\n};\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const userId = item.json.id;\n  const userName = String(item.json.nome ?? 'Usuário').trim() || 'Usuário';\n  const userMessage = String(item.json.sanitized_message ?? item.json.message ?? '').trim();\n  const historico = Array.isArray(item.json.historico) ? item.json.historico : [];\n\n  // ═══════════════════════════════════════════════════════════════════\n  // SYSTEM PROMPT OTIMIZADO PARA TOOL CALLING\n  // ═══════════════════════════════════════════════════════════════════\n  const systemPrompt = `\nVocê é a Ana, assistente virtual de agendamentos. Responda sempre em português do Brasil, de forma simpática e objetiva (máximo 80 palavras).\n\n## BOAS-VINDAS (primeira mensagem ou saudação)\nQuando o usuário disser \"oi\", \"olá\", \"boa tarde\", etc., apresente-se:\n\"Olá, ${userName}! Sou a Ana, sua assistente de agendamentos. Posso ajudar você a:\\n• Agendar uma consulta\\n• Consultar seus agendamentos\\n• Remarcar ou cancelar\\n\\nComo posso ajudar?\"\n\n## DESPEDIDA (quando usuário se despede)\nQuando o usuário disser \"tchau\", \"obrigado, era isso\", \"até logo\", etc.:\n\"Foi um prazer ajudar, ${userName}! Se precisar de algo mais, estarei por aqui. Tenha um ótimo dia!\"\n\n## CONTEXTO\n- Data atual: ${dataAtual} (${dataCurta})\n- Hora atual: ${horaAtual}\n- Amanhã: ${dataAmanha} (${dataAmanhaCurta})\n- Usuário: ${userName}\n- user_id: '${userId}'\n\n## FERRAMENTAS DISPONÍVEIS (USE OBRIGATORIAMENTE)\n\nVocê tem 4 ferramentas para gerenciar agendamentos. SEMPRE use a ferramenta apropriada:\n\n### 1. Criar Agendamento\n- QUANDO: Usuário CONFIRMA agendamento (disse \"sim\", \"confirmo\", \"pode agendar\")\n- QUERY: INSERT INTO agendamentos (user_id, data_agendada, status, mensagem) VALUES ('${userId}', 'YYYY-MM-DD HH:MM:SS', 'pendente', 'Consulta') RETURNING id, data_agendada, status;\n- IMPORTANTE: user_id SEMPRE entre aspas simples, data formato ISO\n\n### 2. Consultar Agendamentos  \n- QUANDO: Usuário pergunta sobre horários (\"meus agendamentos\", \"o que tenho marcado\")\n- QUANDO: ANTES de cancelar ou remarcar (para obter o ID)\n- QUERY: SELECT id, data_agendada, status, mensagem FROM agendamentos WHERE user_id = '${userId}' AND status = 'pendente' ORDER BY data_agendada;\n\n### 3. Cancelar Agendamento\n- QUANDO: Usuário CONFIRMA cancelamento\n- FLUXO: Primeiro CONSULTE para obter o ID, depois CANCELE\n- QUERY: UPDATE agendamentos SET status = 'cancelado', updated_at = NOW() WHERE id = 'ID_DO_AGENDAMENTO' AND user_id = '${userId}' RETURNING id, data_agendada, status;\n\n### 4. Remarcar Agendamento\n- QUANDO: Usuário CONFIRMA nova data/hora\n- FLUXO: Primeiro CONSULTE para obter o ID, depois REMARQUE\n- QUERY: UPDATE agendamentos SET data_agendada = 'NOVA-DATA', updated_at = NOW() WHERE id = 'ID_DO_AGENDAMENTO' AND user_id = '${userId}' AND status = 'pendente' RETURNING id, data_agendada, status;\n\n## REGRAS CRÍTICAS PARA QUERIES SQL\n\n1. TODOS os UUIDs devem estar entre ASPAS SIMPLES: '${userId}', 'uuid-do-agendamento'\n2. Datas no formato: 'YYYY-MM-DD HH:MM:SS' (ex: '${dataISOAmanha} 14:00:00')\n3. Status válidos: 'pendente', 'cancelado', 'realizado'\n4. SEMPRE incluir user_id = '${userId}' nas queries\n5. Para CANCELAR/REMARCAR: primeiro CONSULTE para obter o ID real do agendamento\n\n## FLUXO DE CONVERSA\n\n1. Pedido de agendamento → Pergunte data/hora ou confirme se já informou\n2. Data/hora informada → Confirme: \"Confirmo para [data] às [hora]. Está correto?\"\n3. Usuário confirma (\"sim\") → USE A FERRAMENTA para criar no banco → Informe sucesso\n4. Consulta de agendamentos → USE A FERRAMENTA para buscar → Liste os resultados\n5. Cancelar/Remarcar → USE A FERRAMENTA consultar → Confirme com usuário → USE A FERRAMENTA para alterar\n\n## IMPORTANTE\n\n- NUNCA invente dados. Use as ferramentas para consultar o banco.\n- Após usar uma ferramenta, informe o resultado ao usuário de forma amigável.\n- Se a ferramenta retornar erro, informe o usuário e ofereça alternativas.\n- Sempre valide datas (não aceite datas no passado).\n`.trim();\n\n  // ─────────────────────────────────────────────────────────────────\n  // Monta array de mensagens para a LLM (APENAS histórico passado)\n  // A mensagem atual é enviada separadamente via llm_current_message\n  // ─────────────────────────────────────────────────────────────────\n  const messages = [];\n\n  // Adiciona histórico (mensagens anteriores, NÃO inclui a atual)\n  for (const h of historico) {\n    pushIf(messages, 'user', h?.mensagem_usuario);\n    pushIf(messages, 'assistant', h?.mensagem_bot);\n  }\n\n  // ─────────────────────────────────────────────────────────────────\n  // Output para o próximo node\n  // ─────────────────────────────────────────────────────────────────\n  out.push({\n    json: {\n      llm_system_prompt: systemPrompt,\n      llm_user_messages: messages,\n      llm_current_message: userMessage,\n      llm_user_id: userId,\n      llm_temperature: 0.7,\n      llm_max_tokens: 500\n    }\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13856,
+        1392
+      ],
+      "id": "7dfd837c-3e04-4705-85c6-b94c5f0e2a30",
+      "name": "Code prompt"
+    }
+  ],
+  "connections": {
+    "Webhook - Chat Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Validar Input do Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Exists?": {
+      "main": [
+        [
+          {
+            "node": "Is User Blocked?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check User in DB": {
+      "main": [
+        [
+          {
+            "node": "User Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New User": {
+      "main": [
+        [
+          {
+            "node": "Is User Blocked?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is User Blocked?": {
+      "main": [
+        [
+          {
+            "node": "Respond Blocked - 403",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anti Prompt Injection": {
+      "main": [
+        [
+          {
+            "node": "Prompt Injection?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Injection?": {
+      "main": [
+        [
+          {
+            "node": "Respond Prompt Injection - 400",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fechar Interação Anterior",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Input do Webhook": {
+      "main": [
+        [
+          {
+            "node": "Input valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input valid?": {
+      "main": [
+        [
+          {
+            "node": "Check User in DB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Valid - 422",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "message": {
+      "main": [
+        [
+          {
+            "node": "Anti Prompt Injection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Histórico": {
+      "main": [
+        [
+          {
+            "node": "historico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model3": {
+      "main": [
+        [
+          {
+            "node": "Update Interação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Prompt": {
+      "main": [
+        [
+          {
+            "node": "Code prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fechar Interação Anterior": {
+      "main": [
+        [
+          {
+            "node": "Inserir Interação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inserir Interação": {
+      "main": [
+        [
+          {
+            "node": "Buscar Histórico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Interação": {
+      "main": [
+        [
+          {
+            "node": "Normalize Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "historico": {
+      "main": [
+        [
+          {
+            "node": "Normalize Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Respond": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook - 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Agendamentos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelar Agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remarcar Agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code prompt": {
+      "main": [
+        [
+          {
+            "node": "Message a model3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook - Chat Endpoint": [
+      {
+        "headers": {
+          "host": "localhost:5679",
+          "user-agent": "curl/8.7.1",
+          "accept": "*/*",
+          "content-type": "application/json",
+          "content-length": "60"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "nome": "João",
+          "email": "joao@gmail.com",
+          "message": "tem agenda para o dia 15 ?"
+        },
+        "webhookUrl": "http://localhost:5679/webhook/chat",
+        "executionMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

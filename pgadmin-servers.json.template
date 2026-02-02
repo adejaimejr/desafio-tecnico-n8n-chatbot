@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "PostgreSQL (Ambos DBs)",
+      "Group": "Servers",
+      "Host": "${DB_POSTGRESDB_HOST}",
+      "Port": ${DB_POSTGRESDB_PORT},
+      "MaintenanceDB": "postgres",
+      "Username": "${POSTGRES_USER}",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/pgpass",
+      "Comment": "Servidor PostgreSQL - contém databases '${DB_POSTGRESDB_DATABASE}' e '${CHATBOT_DATABASE}'"
+    }
+  }
+}

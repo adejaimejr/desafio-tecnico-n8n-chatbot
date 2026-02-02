@@ -1,0 +1,37 @@
+# Garantir line endings corretos em todas as plataformas
+# Isso é crítico para scripts shell que rodam no Docker (Alpine Linux)
+
+# Scripts shell sempre com LF (Unix), nunca CRLF (Windows)
+*.sh text eol=lf
+
+# SQL sempre com LF
+*.sql text eol=lf
+
+# JSON sempre com LF
+*.json text eol=lf
+
+# Markdown com LF
+*.md text eol=lf
+
+# Configurações com LF
+.env* text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Docker files com LF
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+**/Dockerfile* text eol=lf
+
+# Arquivos de texto genéricos
+*.txt text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Binários (sem conversão)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

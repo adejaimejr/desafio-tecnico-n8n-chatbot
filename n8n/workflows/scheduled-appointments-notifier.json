@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -512,
+        0
+      ],
+      "id": "fe1c93d6-7e2c-445d-911f-a37de97066ff",
+      "name": "Cron - A cada 1 hora"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Buscar agendamentos pendentes para próximas 24 horas que ainda não foram notificados\nSELECT\n  a.id AS agendamento_id,\n  a.user_id,\n  u.nome,\n  u.email,\n  a.data_agendada,\n  a.mensagem,\n  a.status,\n  EXTRACT(EPOCH FROM (a.data_agendada - NOW()))/3600 AS horas_ate_agendamento\nFROM public.agendamentos a\nINNER JOIN public.users u ON a.user_id = u.id\nWHERE\n  a.status = 'pendente'\n  AND a.notificado = false\n  AND u.bloqueado = false\n  AND a.data_agendada > NOW()\n  AND a.data_agendada <= NOW() + INTERVAL '24 hours'\nORDER BY a.data_agendada ASC\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -272,
+        0
+      ],
+      "id": "db04d2bb-03ea-4827-b7df-189a933c37f8",
+      "name": "Buscar Agendamentos Próximos",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-has-agendamentos",
+              "leftValue": "={{ $json.agendamento_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "4ea900e6-4308-412c-877a-32e34aaae08c",
+      "name": "Tem Agendamentos?"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        208,
+        208
+      ],
+      "id": "c0ac5c25-d88c-44e8-a046-842d454a08c0",
+      "name": "Stop - Sem Agendamentos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================\n// Gerar Mensagem de Notificação\n// ==================\n\nconst item = $input.item.json;\n\n// Formatar data para exibição\nconst dataAgendada = new Date(item.data_agendada);\nconst dataFormatada = dataAgendada.toLocaleDateString('pt-BR', {\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\nconst horaFormatada = dataAgendada.toLocaleTimeString('pt-BR', {\n  hour: '2-digit',\n  minute: '2-digit'\n});\n\n// Calcular horas restantes\nconst horasRestantes = Math.round(item.horas_ate_agendamento);\nlet tempoTexto = '';\nif (horasRestantes <= 1) {\n  tempoTexto = 'em menos de 1 hora';\n} else if (horasRestantes < 24) {\n  tempoTexto = `em ${horasRestantes} horas`;\n} else {\n  tempoTexto = 'amanhã';\n}\n\n// Montar mensagem de notificação\nconst mensagemNotificacao = `Olá ${item.nome}!\n\n🗓️ Lembrete de Agendamento\n\nVocê tem um compromisso agendado para:\n📅 Data: ${dataFormatada}\n⏰ Horário: ${horaFormatada}\n📝 Descrição: ${item.mensagem || 'Não informada'}\n\n⏳ Faltam: ${tempoTexto}\n\nPor favor, confirme sua presença ou reagende se necessário.\n\nAtenciosamente,\nSistema de Agendamentos`;\n\nreturn {\n  json: {\n    ...item,\n    notification_message: mensagemNotificacao,\n    data_formatada: dataFormatada,\n    hora_formatada: horaFormatada,\n    horas_restantes: horasRestantes,\n    notification_sent: true\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "36bccbfb-7606-4368-99e4-95c442e92447",
+      "name": "Gerar Notificação"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-notification",
+              "name": "log_message",
+              "value": "=Notificação enviada para {{ $json.email }} - Agendamento: {{ $json.agendamento_id }} - {{ $json.data_formatada }} às {{ $json.hora_formatada }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        0
+      ],
+      "id": "43105163-0bec-4761-b979-d16e8b0cf41a",
+      "name": "Simular Envio (Log)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.agendamentos\nSET\n  notificado = true,\n  updated_at = NOW()\nWHERE id = $1\nRETURNING id, notificado, updated_at;",
+        "options": {
+          "queryReplacement": "={{ [$json.agendamento_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        928,
+        0
+      ],
+      "id": "23dec143-889f-48b5-b2d5-6fd3fe7d2a39",
+      "name": "UPDATE Notificado = true",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        208,
+        -16
+      ],
+      "id": "404a0c89-018c-4666-978f-af7caa6625ce",
+      "name": "Loop"
+    }
+  ],
+  "connections": {
+    "Cron - A cada 1 hora": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agendamentos Próximos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Agendamentos Próximos": {
+      "main": [
+        [
+          {
+            "node": "Tem Agendamentos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Agendamentos?": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop - Sem Agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Notificação": {
+      "main": [
+        [
+          {
+            "node": "Simular Envio (Log)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simular Envio (Log)": {
+      "main": [
+        [
+          {
+            "node": "UPDATE Notificado = true",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE Notificado = true": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Gerar Notificação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// ==================\n// Validar UUID\n// ==================\n\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nfor (const item of $input.all()) {\n  const params = item.json.params ?? {};\n  const id = String(params.id ?? '').trim();\n\n  let error = null;\n  if (!id) {\n    error = 'ID do agendamento é obrigatório';\n  } else if (!uuidRegex.test(id)) {\n    error = 'ID inválido (deve ser UUID)';\n  }\n\n  item.json = {\n    valid: !error,\n    error: error,\n    agendamento_id: id\n  };\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        0
+      ],
+      "id": "48edebce-d1d4-419e-9ee2-daebb31df37b",
+      "name": "Validar UUID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-uuid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -464,
+        0
+      ],
+      "id": "529c0fb3-3343-40e0-99b5-7d6b7b1650ab",
+      "name": "UUID Válido?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Validação falhou\", \"details\": { \"id\": $json.error } } }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        160
+      ],
+      "id": "82875842-98a5-43fd-a17a-2465313e1487",
+      "name": "Response 422 (ID Inválido)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.user_id,\n  u.nome,\n  u.email,\n  a.data_agendada,\n  a.mensagem,\n  a.status,\n  a.notificado,\n  a.created_at,\n  a.updated_at\nFROM public.agendamentos a\nINNER JOIN public.users u ON a.user_id = u.id\nWHERE a.id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.agendamento_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -224,
+        -16
+      ],
+      "id": "336b0305-c096-4eb9-9842-fdade4cc8e16",
+      "name": "SELECT Agendamento",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-exists",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        16,
+        -16
+      ],
+      "id": "f09c9868-ddba-47b6-90ff-d55b176f70b9",
+      "name": "Agendamento Existe?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Agendamento não encontrado\", \"id\": $('Validar UUID').item.json.agendamento_id } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        112
+      ],
+      "id": "b8303de8-4542-45bf-add2-2e4504da33cc",
+      "name": "Response 404 (Não Encontrado)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"agendamento\": $json } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        -128
+      ],
+      "id": "6285aa3d-c3e3-44f1-bb58-1e4aa347f4fe",
+      "name": "Response 200"
+    },
+    {
+      "parameters": {
+        "path": "api/v1/agendamento/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -928,
+        0
+      ],
+      "id": "6e8d6f19-0723-49b3-bd66-ac387f56d3bf",
+      "name": "Webhook GET /api/v1/agendamento/:id",
+      "webhookId": "d2138afc-9926-4ab6-a98d-29123efcd144"
+    }
+  ],
+  "connections": {
+    "Validar UUID": {
+      "main": [
+        [
+          {
+            "node": "UUID Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UUID Válido?": {
+      "main": [
+        [
+          {
+            "node": "SELECT Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 422 (ID Inválido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SELECT Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Agendamento Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agendamento Existe?": {
+      "main": [
+        [
+          {
+            "node": "Response 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 404 (Não Encontrado)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook GET /api/v1/agendamento/:id": {
+      "main": [
+        [
+          {
+            "node": "Validar UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

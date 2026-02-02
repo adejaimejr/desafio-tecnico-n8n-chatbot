@@ -1,0 +1,479 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1712,
+        64
+      ],
+      "id": "2ca4d15f-c588-49ad-87a5-d09618019567",
+      "name": "Cron 1 min"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Busca interações que precisam de lembrete\n-- 1º lembrete: 15min após mensagem original\n-- 2º lembrete: 15min após 1º lembrete\nSELECT\n    i.id AS interaction_id,\n    i.user_id,\n    i.message AS original_message,\n    i.reminder_count,\n    i.created_at,\n    u.nome,\n    u.email,\n    COALESCE(last_reminder.sent_at, i.created_at) AS last_contact,\n    EXTRACT(EPOCH FROM (NOW() - COALESCE(last_reminder.sent_at, i.created_at)))/60 AS minutes_since_last_contact\nFROM public.interactions i\nINNER JOIN users u ON i.user_id = u.id\nLEFT JOIN LATERAL (\n    SELECT sent_at FROM reminders r \n    WHERE r.interaction_id = i.id \n    ORDER BY sent_at DESC LIMIT 1\n) last_reminder ON true\nWHERE\n    i.responded_at IS NULL\n    AND i.reminder_count < 2\n    AND i.is_active = true\n    AND u.bloqueado = false\n    AND COALESCE(last_reminder.sent_at, i.created_at) <= NOW() - INTERVAL '15 minutes'\nORDER BY i.created_at ASC\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1504,
+        64
+      ],
+      "id": "1647db0d-1502-46d4-a9d1-e9fe94b896e2",
+      "name": "Buscar Interações",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-tem-interacoes",
+              "leftValue": "={{ $json.interaction_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1296,
+        64
+      ],
+      "id": "7feb10fd-cebb-42a9-9598-65114842fe52",
+      "name": "Tem interações?"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1088,
+        48
+      ],
+      "id": "50d4fb08-4f90-4b0a-83e7-5c68c6f381e5",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prep-interaction-id",
+              "name": "interaction_id",
+              "value": "={{ $json.interaction_id }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-user-id",
+              "name": "user_id",
+              "value": "={{ $json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-nome",
+              "name": "nome",
+              "value": "={{ $json.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-email",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-original-message",
+              "name": "original_message",
+              "value": "={{ $json.original_message }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-current-count",
+              "name": "current_reminder_count",
+              "value": "={{ $json.reminder_count }}",
+              "type": "number"
+            },
+            {
+              "id": "prep-next-number",
+              "name": "next_reminder_number",
+              "value": "={{ $json.reminder_count + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "prep-is-last",
+              "name": "is_last_reminder",
+              "value": "={{ $json.reminder_count + 1 >= 2 }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        64
+      ],
+      "id": "492ec5d8-b179-4cca-9f68-dfab74348481",
+      "name": "Preparar Dados"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg-reminder",
+              "name": "reminder_message",
+              "value": "={{ $json.next_reminder_number === 1 ? 'Olá ' + $json.nome + '! Ainda precisa de ajuda? Estou aqui para continuar nossa conversa.' : 'Última tentativa, ' + $json.nome + '! Podemos continuar nossa conversa? Caso não responda, encerrarei este atendimento.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -672,
+        64
+      ],
+      "id": "5da1809b-1c77-402e-ab99-30b479af794f",
+      "name": "Gerar Lembrete"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sim-sent",
+              "name": "notification_sent",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "sim-sent-at",
+              "name": "sent_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -32
+      ],
+      "id": "69151846-060e-41de-a1a5-48962ae68eb5",
+      "name": "Simular Envio"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Salvar log de lembrete enviado\nINSERT INTO reminders (\n    interaction_id,\n    reminder_number,\n    sent_at,\n    was_responded\n)\nVALUES (\n    $1,\n    $2,\n    NOW(),\n    false\n)\nRETURNING id, interaction_id, reminder_number, sent_at;",
+        "options": {
+          "queryReplacement": "={{ [$json.interaction_id, $json.next_reminder_number] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -256,
+        64
+      ],
+      "id": "dbd062a7-ae57-4703-b6bb-6278ecc11989",
+      "name": "Salvar Log Reminder",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Incrementar contador de lembretes\nUPDATE interactions\nSET reminder_count = reminder_count + 1\nWHERE id = $1\nRETURNING id, reminder_count, is_active;",
+        "options": {
+          "queryReplacement": "={{ [$('Preparar Dados').item.json.interaction_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -48,
+        64
+      ],
+      "id": "35f17a6b-cded-4083-8674-f2a0fe8919e5",
+      "name": "Incrementar Count",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-is-last",
+              "leftValue": "={{ $('Preparar Dados').item.json.is_last_reminder }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        64
+      ],
+      "id": "24e60013-f80a-4514-a3a2-2a267bb7e10c",
+      "name": "É 2º Lembrete?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Desativar interação após 2º lembrete\nUPDATE interactions\nSET is_active = false\nWHERE id = $1\nRETURNING id, reminder_count, is_active;",
+        "options": {
+          "queryReplacement": "={{ [$('Preparar Dados').item.json.interaction_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        384,
+        112
+      ],
+      "id": "1bf544b8-0308-4822-9286-b9cca01893e3",
+      "name": "Desativar Interação",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1088,
+        320
+      ],
+      "id": "588b72d7-b3f6-43d6-81b6-80671b2c81ac",
+      "name": "Stop - Sem interações"
+    }
+  ],
+  "connections": {
+    "Cron 1 min": {
+      "main": [
+        [
+          {
+            "node": "Buscar Interações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Interações": {
+      "main": [
+        [
+          {
+            "node": "Tem interações?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem interações?": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop - Sem interações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Preparar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Dados": {
+      "main": [
+        [
+          {
+            "node": "Gerar Lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Lembrete": {
+      "main": [
+        [
+          {
+            "node": "Simular Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simular Envio": {
+      "main": [
+        [
+          {
+            "node": "Salvar Log Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Log Reminder": {
+      "main": [
+        [
+          {
+            "node": "Incrementar Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incrementar Count": {
+      "main": [
+        [
+          {
+            "node": "É 2º Lembrete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É 2º Lembrete?": {
+      "main": [
+        [
+          {
+            "node": "Desativar Interação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desativar Interação": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

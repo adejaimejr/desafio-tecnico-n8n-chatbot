@@ -1,0 +1,360 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/v1/desbloqueio",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -416,
+        544
+      ],
+      "id": "5f4f5a4d-e9ce-4521-8549-6bd9acd52635",
+      "name": "Webhook Desbloqueio",
+      "webhookId": "85cba1f0-1026-4adb-9e45-b4f245d39b13"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar input e definir ação\nconst body = $input.item.json.body || $input.item.json;\n\n// Ação é desbloqueio\nconst action = 'desbloqueio';\n\n// Validar email\nconst email = String(body.email || '').trim().toLowerCase();\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\nlet error = null;\nif (!email) {\n  error = 'Email é obrigatório';\n} else if (!emailRegex.test(email)) {\n  error = 'Email inválido';\n}\n\nreturn {\n  json: {\n    valid: !error,\n    error: error,\n    email: email,\n    action: action\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        544
+      ],
+      "id": "d9e09062-ab63-41ad-ad3a-82e984b253dd",
+      "name": "Validar Input Desbloqueio"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-desbloq",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        32,
+        544
+      ],
+      "id": "e035d68f-25f4-47d4-925a-c8f117897128",
+      "name": "Input Válido? (Desbloqueio)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Validação falhou\", \"details\": { \"email\": $json.error } } }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        736
+      ],
+      "id": "26396d02-a6a0-47b4-91d3-687870e387d6",
+      "name": "Response 422 (Desbloqueio)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nome, email, bloqueado FROM public.users WHERE email = $1 LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.email] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        528
+      ],
+      "id": "fadf63f4-30c0-41e0-b0f1-77f7093b1f9d",
+      "name": "Buscar Usuário (Desbloqueio)",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-exists-desbloq",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        528
+      ],
+      "id": "3ab243bc-698c-419b-9f13-35af59f7d791",
+      "name": "Usuário Existe? (Desbloqueio)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Usuário não encontrado\", \"email\": $('Validar Input Desbloqueio').item.json.email } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        688
+      ],
+      "id": "4350b61e-dd21-4db6-8e33-a509a5c76616",
+      "name": "Response 404 (Desbloqueio)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-already-unblocked",
+              "leftValue": "={{ $json.bloqueado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        656,
+        512
+      ],
+      "id": "5e6431e5-5135-4125-b149-d86c8cecc30f",
+      "name": "Já Desbloqueado?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Usuário já estava desbloqueado\", \"user\": { \"id\": $json.id, \"nome\": $json.nome, \"email\": $json.email, \"bloqueado\": $json.bloqueado } } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        864,
+        352
+      ],
+      "id": "b92fa328-5b05-4a83-bbea-127d43468f07",
+      "name": "Response Já Desbloqueado"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.users SET bloqueado = false, updated_at = NOW() WHERE id = $1 RETURNING id, nome, email, bloqueado;",
+        "options": {
+          "queryReplacement": "={{ [$json.id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        864,
+        528
+      ],
+      "id": "026559a6-483f-4716-8eac-1e88e1cba439",
+      "name": "UPDATE Desbloquear",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Usuário desbloqueado com sucesso\", \"user\": { \"id\": $json.id, \"nome\": $json.nome, \"email\": $json.email, \"bloqueado\": $json.bloqueado } } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        528
+      ],
+      "id": "e9df7b6d-6397-456e-aad9-8dcf03df2ff2",
+      "name": "Response Desbloqueado Sucesso"
+    }
+  ],
+  "connections": {
+    "Webhook Desbloqueio": {
+      "main": [
+        [
+          {
+            "node": "Validar Input Desbloqueio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Input Desbloqueio": {
+      "main": [
+        [
+          {
+            "node": "Input Válido? (Desbloqueio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Válido? (Desbloqueio)": {
+      "main": [
+        [
+          {
+            "node": "Buscar Usuário (Desbloqueio)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 422 (Desbloqueio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Usuário (Desbloqueio)": {
+      "main": [
+        [
+          {
+            "node": "Usuário Existe? (Desbloqueio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuário Existe? (Desbloqueio)": {
+      "main": [
+        [
+          {
+            "node": "Já Desbloqueado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 404 (Desbloqueio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Já Desbloqueado?": {
+      "main": [
+        [
+          {
+            "node": "Response Já Desbloqueado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UPDATE Desbloquear",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE Desbloquear": {
+      "main": [
+        [
+          {
+            "node": "Response Desbloqueado Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

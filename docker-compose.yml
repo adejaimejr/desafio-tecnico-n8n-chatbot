@@ -1,0 +1,420 @@
+services:
+  # ═══════════════════════════════════════════════════════════════════
+  # POSTGRESQL - Banco de Dados Principal
+  # ═══════════════════════════════════════════════════════════════════
+  # Multi-arquitetura: linux/amd64 (Intel/AMD), linux/arm64 (Apple Silicon)
+  postgres:
+    image: postgres:15.8-alpine
+    container_name: chatbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_DATABASE: ${DB_POSTGRESDB_DATABASE}
+      CHATBOT_DATABASE: ${CHATBOT_DATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/02-init-schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # REDIS - Fila de Jobs (Bull Queue)
+  # ═══════════════════════════════════════════════════════════════════
+  # Multi-arquitetura: linux/amd64 (Intel/AMD), linux/arm64 (Apple Silicon)
+  redis:
+    image: redis:7.4-alpine
+    container_name: chatbot-redis
+    restart: unless-stopped
+    # Configuração otimizada com:
+    # - Persistência AOF (appendonly) + RDB (save)
+    # - Senha para segurança (requirepass)
+    # - Limite de memória 3GB com política LRU (remove menos usados)
+    # - Sincronização a cada segundo (appendfsync everysec)
+    # - Snapshots automáticos: 900s/1 alteração, 300s/10 alterações, 60s/10000 alterações
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --port ${QUEUE_BULL_REDIS_PORT}
+      --requirepass ${QUEUE_BULL_REDIS_PASSWORD}
+      --maxmemory 3gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${QUEUE_BULL_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # N8N EDITOR - Interface Web (UI)
+  # ═══════════════════════════════════════════════════════════════════
+  # Responsável por:
+  # - Interface web para criar/editar workflows
+  # - Gerenciamento de credenciais
+  # - Visualização de execuções
+  # - NÃO processa workflows (delegado ao worker)
+  # - NÃO recebe webhooks (delegado ao webhook container)
+  n8n-editor:
+    image: n8nio/n8n:2.4.8
+    container_name: chatbot-n8n-editor
+    restart: unless-stopped
+    environment:
+      # ══════ Database Configuration ══════
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_CONNECTION_TIMEOUT=${DB_POSTGRESDB_CONNECTION_TIMEOUT}
+      - DB_POSTGRESDB_SSL_ENABLED=${DB_POSTGRESDB_SSL_ENABLED}
+
+      # ══════ General Configuration ══════
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - NODE_ENV=production
+      - N8N_PORT=${N8N_PORT}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_ENDPOINT_WEBHOOK=${N8N_ENDPOINT_WEBHOOK}
+
+      # ══════ Queue Mode Configuration ══════
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
+      - QUEUE_BULL_REDIS_DB=${QUEUE_BULL_REDIS_DB}
+      - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
+      - QUEUE_HEALTH_CHECK_ACTIVE=${QUEUE_HEALTH_CHECK_ACTIVE}
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+
+      # ══════ Execution Timeouts ══════
+      - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT}
+      - EXECUTIONS_TIMEOUT_MAX=${EXECUTIONS_TIMEOUT_MAX}
+
+      # ══════ Data Pruning (Auto-cleanup) ══════
+      - EXECUTIONS_DATA_PRUNE=${EXECUTIONS_DATA_PRUNE}
+      - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
+      - EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL=${EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL}
+      - EXECUTIONS_DATA_PRUNE_SOFT_DELETE_INTERVAL=${EXECUTIONS_DATA_PRUNE_SOFT_DELETE_INTERVAL}
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=${EXECUTIONS_DATA_PRUNE_MAX_COUNT}
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      - EXECUTIONS_DATA_SAVE_ON_PROGRESS=${EXECUTIONS_DATA_SAVE_ON_PROGRESS}
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=${EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS}
+
+      # ══════ Timezone ══════
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${TZ}
+
+      # ══════ Security ══════
+      - N8N_PAYLOAD_SIZE_MAX=${N8N_PAYLOAD_SIZE_MAX}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
+
+      # ══════ Logging & Metrics ══════
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL}
+      - N8N_LOG_OUTPUT=${N8N_LOG_OUTPUT}
+      - N8N_METRICS=${N8N_METRICS}
+      - N8N_DIAGNOSTICS_ENABLED=${N8N_DIAGNOSTICS_ENABLED}
+
+      # ══════ Community Packages ══════
+      - N8N_COMMUNITY_PACKAGES_ENABLED=${N8N_COMMUNITY_PACKAGES_ENABLED}
+      - N8N_REINSTALL_MISSING_PACKAGES=${N8N_REINSTALL_MISSING_PACKAGES}
+      - NODE_FUNCTION_ALLOW_BUILTIN=${NODE_FUNCTION_ALLOW_BUILTIN}
+      - NODE_FUNCTION_ALLOW_EXTERNAL=${NODE_FUNCTION_ALLOW_EXTERNAL}
+
+      # ══════ Task Runners ══════
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - N8N_RUNNERS_MODE=${N8N_RUNNERS_MODE}
+
+      # ══════ UI Configuration ══════
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=${N8N_VERSION_NOTIFICATIONS_ENABLED}
+      - N8N_PUBLIC_API_SWAGGERUI_DISABLED=${N8N_PUBLIC_API_SWAGGERUI_DISABLED}
+      - N8N_TEMPLATES_ENABLED=${N8N_TEMPLATES_ENABLED}
+      - N8N_ONBOARDING_FLOW_DISABLED=${N8N_ONBOARDING_FLOW_DISABLED}
+      - N8N_WORKFLOW_TAGS_DISABLED=${N8N_WORKFLOW_TAGS_DISABLED}
+
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:rw
+      - ./n8n/credentials:/home/node/.n8n/credentials:rw
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # N8N WEBHOOK - Recebe Webhooks (HTTP Endpoints)
+  # ═══════════════════════════════════════════════════════════════════
+  # Responsável por:
+  # - Receber requisições HTTP (webhooks)
+  # - Adicionar jobs na fila Redis
+  # - Responder instantaneamente (não processa)
+  # - Escalável horizontalmente (múltiplas instâncias)
+  n8n-webhook:
+    image: n8nio/n8n:2.4.8
+    container_name: chatbot-n8n-webhook
+    restart: unless-stopped
+    command: webhook
+    environment:
+      # ══════ Database Configuration ══════
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_CONNECTION_TIMEOUT=${DB_POSTGRESDB_CONNECTION_TIMEOUT}
+      - DB_POSTGRESDB_SSL_ENABLED=${DB_POSTGRESDB_SSL_ENABLED}
+
+      # ══════ General Configuration ══════
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - NODE_ENV=production
+      - N8N_PORT=${N8N_PORT}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_ENDPOINT_WEBHOOK=${N8N_ENDPOINT_WEBHOOK}
+
+      # ══════ Queue Mode Configuration ══════
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
+      - QUEUE_BULL_REDIS_DB=${QUEUE_BULL_REDIS_DB}
+      - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+
+      # ══════ Execution Timeouts ══════
+      - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT}
+      - EXECUTIONS_TIMEOUT_MAX=${EXECUTIONS_TIMEOUT_MAX}
+
+      # ══════ Timezone ══════
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${TZ}
+
+      # ══════ Security ══════
+      - N8N_PAYLOAD_SIZE_MAX=${N8N_PAYLOAD_SIZE_MAX}
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
+
+      # ══════ Logging ══════
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL}
+      - N8N_LOG_OUTPUT=${N8N_LOG_OUTPUT}
+      - N8N_DIAGNOSTICS_ENABLED=${N8N_DIAGNOSTICS_ENABLED}
+
+      # ══════ Community Packages ══════
+      - NODE_FUNCTION_ALLOW_BUILTIN=${NODE_FUNCTION_ALLOW_BUILTIN}
+      - NODE_FUNCTION_ALLOW_EXTERNAL=${NODE_FUNCTION_ALLOW_EXTERNAL}
+
+      # ══════ Task Runners ══════
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - N8N_RUNNERS_MODE=${N8N_RUNNERS_MODE}
+
+    ports:
+      - "5679:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+      - ./n8n/credentials:/home/node/.n8n/credentials:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # N8N WORKER - Processa Workflows (Background Processing)
+  # ═══════════════════════════════════════════════════════════════════
+  # Responsável por:
+  # - Pegar jobs da fila Redis
+  # - Executar workflows em background
+  # - Salvar resultados no PostgreSQL
+  # - Escalável horizontalmente (docker-compose up -d --scale n8n-worker=3)
+  n8n-worker:
+    image: n8nio/n8n:2.4.8
+    container_name: chatbot-n8n-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      # ══════ Database Configuration ══════
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_CONNECTION_TIMEOUT=${DB_POSTGRESDB_CONNECTION_TIMEOUT}
+      - DB_POSTGRESDB_SSL_ENABLED=${DB_POSTGRESDB_SSL_ENABLED}
+
+      # ══════ General Configuration ══════
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - NODE_ENV=production
+
+      # ══════ Queue Mode Configuration ══════
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
+      - QUEUE_BULL_REDIS_DB=${QUEUE_BULL_REDIS_DB}
+      - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
+
+      # ══════ Execution Timeouts ══════
+      - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT}
+      - EXECUTIONS_TIMEOUT_MAX=${EXECUTIONS_TIMEOUT_MAX}
+
+      # ══════ Worker Configuration ══════
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      - EXECUTIONS_DATA_SAVE_ON_PROGRESS=${EXECUTIONS_DATA_SAVE_ON_PROGRESS}
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=${EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS}
+
+      # ══════ Timezone ══════
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${TZ}
+
+      # ══════ Security ══════
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
+
+      # ══════ Logging ══════
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL}
+      - N8N_LOG_OUTPUT=${N8N_LOG_OUTPUT}
+
+      # ══════ Community Packages ══════
+      - NODE_FUNCTION_ALLOW_BUILTIN=${NODE_FUNCTION_ALLOW_BUILTIN}
+      - NODE_FUNCTION_ALLOW_EXTERNAL=${NODE_FUNCTION_ALLOW_EXTERNAL}
+      - N8N_COMMUNITY_PACKAGES_ENABLED=${N8N_COMMUNITY_PACKAGES_ENABLED}
+      - N8N_REINSTALL_MISSING_PACKAGES=${N8N_REINSTALL_MISSING_PACKAGES}
+
+      # ══════ Task Runners ══════
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - N8N_RUNNERS_MODE=${N8N_RUNNERS_MODE}
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+      - ./n8n/credentials:/home/node/.n8n/credentials:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # FRONTEND - Interface do ChatBot (React + Vite)
+  # ═══════════════════════════════════════════════════════════════════
+  frontend:
+    image: node:20-alpine
+    container_name: chatbot-frontend
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_API_KEY=${VITE_API_KEY}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5173 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - chatbot-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PGADMIN - Interface de Administração PostgreSQL
+  # ═══════════════════════════════════════════════════════════════════
+  pgadmin:
+    image: dpage/pgadmin4:9.11
+    container_name: chatbot-pgadmin
+    restart: unless-stopped
+    user: root
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: ${PGADMIN_CONFIG_SERVER_MODE}
+
+      # Variáveis para processar templates
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_HOST: ${DB_POSTGRESDB_HOST}
+      DB_POSTGRESDB_PORT: ${DB_POSTGRESDB_PORT}
+      DB_POSTGRESDB_DATABASE: ${DB_POSTGRESDB_DATABASE}
+      CHATBOT_DATABASE: ${CHATBOT_DATABASE}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json.template:/tmp/servers.json.template:ro
+      - ./pgadmin-pgpass.template:/tmp/pgpass.template:ro
+    depends_on:
+      - postgres
+    entrypoint: >
+      /bin/sh -c "
+      apk add --no-cache gettext 2>/dev/null || true;
+      envsubst < /tmp/servers.json.template > /pgadmin4/servers.json &&
+      envsubst < /tmp/pgpass.template > /tmp/pgpass &&
+      chmod 600 /tmp/pgpass &&
+      chown -R 5050:5050 /var/lib/pgadmin &&
+      export PGPASSFILE=/tmp/pgpass &&
+      /entrypoint.sh
+      "
+    networks:
+      - chatbot-network
+
+# ═══════════════════════════════════════════════════════════════════
+# VOLUMES - Persistência de Dados
+# ═══════════════════════════════════════════════════════════════════
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  n8n_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+# ═══════════════════════════════════════════════════════════════════
+# NETWORKS - Rede Interna
+# ═══════════════════════════════════════════════════════════════════
+networks:
+  chatbot-network:
+    driver: bridge

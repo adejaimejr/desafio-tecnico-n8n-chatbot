@@ -1,0 +1,384 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// ==================\n// Validar Input PUT (Atualizar Agendamento)\n// ==================\n\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nfor (const item of $input.all()) {\n  const params = item.json.params ?? {};\n  const body = item.json.body ?? {};\n  const errors = {};\n\n  // Validar UUID\n  const id = String(params.id ?? '').trim();\n  if (!id) {\n    errors.id = 'ID do agendamento é obrigatório';\n  } else if (!uuidRegex.test(id)) {\n    errors.id = 'ID inválido (deve ser UUID)';\n  }\n\n  // Validar data_agendada (se fornecida)\n  let dataAgendada = null;\n  if (body.data_agendada !== undefined && body.data_agendada !== null && body.data_agendada !== '') {\n    dataAgendada = new Date(body.data_agendada);\n    const agora = new Date();\n    if (isNaN(dataAgendada.getTime())) {\n      errors.data_agendada = 'Data inválida';\n    } else if (dataAgendada <= agora) {\n      errors.data_agendada = 'Data deve ser futura';\n    }\n  }\n\n  // Validar mensagem (se fornecida)\n  let mensagem = null;\n  if (body.mensagem !== undefined && body.mensagem !== null) {\n    mensagem = String(body.mensagem).trim();\n    if (mensagem.length > 0 && mensagem.length < 3) {\n      errors.mensagem = 'Mensagem deve ter ao menos 3 caracteres';\n    } else if (mensagem.length > 500) {\n      errors.mensagem = 'Mensagem deve ter no máximo 500 caracteres';\n    }\n  }\n\n  // Validar status (se fornecido) - só permite pendente ou cancelado via PUT\n  let status = null;\n  if (body.status !== undefined && body.status !== null) {\n    status = String(body.status).toLowerCase().trim();\n    const statusValidos = ['pendente', 'cancelado', 'realizado'];\n    if (!statusValidos.includes(status)) {\n      errors.status = 'Status inválido. Valores permitidos: pendente, cancelado, realizado';\n    }\n  }\n\n  // Resultado\n  const hasErrors = Object.keys(errors).length > 0;\n\n  item.json = {\n    valid: !hasErrors,\n    errors: hasErrors ? errors : null,\n    agendamento_id: id,\n    data_agendada: body.data_agendada || null,\n    mensagem: mensagem,\n    status: status\n  };\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1248,
+        -32
+      ],
+      "id": "4cfcbf14-a63f-476c-b828-e4446833b189",
+      "name": "Validar Input PUT"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-put",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1008,
+        -32
+      ],
+      "id": "baae04d4-5640-4917-aea3-8fa8acf19121",
+      "name": "Input Válido?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Validação falhou\", \"details\": $json.errors } }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -768,
+        128
+      ],
+      "id": "b52bdff6-af9d-4550-b5c4-e8e3fe9d87ae",
+      "name": "Response 422 (Validação)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, user_id, data_agendada, mensagem, status, notificado, created_at, updated_at\nFROM public.agendamentos\nWHERE id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.agendamento_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -768,
+        -48
+      ],
+      "id": "c298ea5b-7068-4326-8f8d-379c2c5d1c9a",
+      "name": "SELECT Agendamento",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-exists-update",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -528,
+        -48
+      ],
+      "id": "41de8202-d070-4478-a8d1-1d317b17761b",
+      "name": "Agendamento Existe?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Agendamento não encontrado\", \"id\": $('Validar Input PUT').item.json.agendamento_id } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        96
+      ],
+      "id": "35d3dcdd-f5ca-42db-8fb1-b987aa6e7b50",
+      "name": "Response 404 (Não Encontrado)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================\n// Verificar se pode editar (status não é final)\n// ==================\n\nconst agendamento = $input.item.json;\nconst statusNaoEditaveis = ['realizado', 'cancelado'];\n\nif (statusNaoEditaveis.includes(agendamento.status)) {\n  return {\n    json: {\n      canEdit: false,\n      reason: `Status '${agendamento.status}' não permite alterações`,\n      agendamento: agendamento\n    }\n  };\n}\n\n// Pode editar\nreturn {\n  json: {\n    canEdit: true,\n    agendamento: agendamento\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -64
+      ],
+      "id": "94d61a2c-deb0-4847-967b-1da4537abe4a",
+      "name": "Verificar Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-can-edit",
+              "leftValue": "={{ $json.canEdit }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -48,
+        -64
+      ],
+      "id": "18a5768d-d411-4b21-b4a2-5f5d90c09db6",
+      "name": "Pode Editar?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Agendamento não pode ser editado\", \"reason\": $json.reason } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        80
+      ],
+      "id": "78e46ab1-daaf-4805-b0a3-ee5a48468a54",
+      "name": "Response 400 (Não Editável)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.agendamentos\nSET\n  data_agendada = COALESCE($2, data_agendada),\n  mensagem = COALESCE($3, mensagem),\n  status = COALESCE($4, status),\n  notificado = CASE WHEN $2 IS NOT NULL THEN false ELSE notificado END,\n  updated_at = NOW()\nWHERE id = $1\nRETURNING\n  id,\n  user_id,\n  data_agendada,\n  mensagem,\n  status,\n  notificado,\n  created_at,\n  updated_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Validar Input PUT').item.json.agendamento_id,\n  $('Validar Input PUT').item.json.data_agendada,\n  $('Validar Input PUT').item.json.mensagem,\n  $('Validar Input PUT').item.json.status\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        -160
+      ],
+      "id": "1d624625-f6fc-468c-9a06-16cca0564e7c",
+      "name": "UPDATE Agendamento",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "credentials": {
+        "postgres": {
+          "id": "r9lFU5WxT5LlSGrn",
+          "name": "Postgres chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Agendamento atualizado com sucesso\", \"agendamento\": $json } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        -160
+      ],
+      "id": "c9d30e76-d2a0-411c-a51a-44f54d519f1e",
+      "name": "Response 200"
+    },
+    {
+      "parameters": {
+        "httpMethod": "PUT",
+        "path": "api/v1/agendamento/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1456,
+        -32
+      ],
+      "id": "905c87d0-834c-4a84-a3fb-f6277224f81c",
+      "name": "Webhook PUT /api/v1/agendamento/:id",
+      "webhookId": "d2138afc-9926-4ab6-a98d-29123efcd144"
+    }
+  ],
+  "connections": {
+    "Validar Input PUT": {
+      "main": [
+        [
+          {
+            "node": "Input Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Válido?": {
+      "main": [
+        [
+          {
+            "node": "SELECT Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 422 (Validação)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SELECT Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Agendamento Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agendamento Existe?": {
+      "main": [
+        [
+          {
+            "node": "Verificar Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 404 (Não Encontrado)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Status": {
+      "main": [
+        [
+          {
+            "node": "Pode Editar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Editar?": {
+      "main": [
+        [
+          {
+            "node": "UPDATE Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response 400 (Não Editável)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Response 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook PUT /api/v1/agendamento/:id": {
+      "main": [
+        [
+          {
+            "node": "Validar Input PUT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4e729a4763f84cfa063af38686a361bcf5853e3cce2ee82ee241730a33d3c21e"
+  }
+}

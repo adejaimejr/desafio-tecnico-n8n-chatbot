@@ -1,0 +1,184 @@
+/* Reset e base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Container do botão de desbloqueio */
+.unblock-container {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  z-index: 10000;
+}
+
+.unblock-card {
+  background: white;
+  padding: 20px 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: slideUp 0.3s ease-out;
+}
+
+.unblock-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.unblock-card p {
+  color: #64748b;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.unblock-button {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.unblock-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.unblock-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Animação */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Container de lembretes */
+.reminder-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 350px;
+}
+
+.reminder-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  border-left: 4px solid #f59e0b;
+}
+
+.reminder-card.reminder-last {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.reminder-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.reminder-icon {
+  font-size: 20px;
+}
+
+.reminder-title {
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+  font-size: 14px;
+}
+
+.reminder-card.reminder-last .reminder-title {
+  color: #dc2626;
+}
+
+.reminder-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.reminder-close:hover {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.reminder-message {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsivo */
+@media (max-width: 480px) {
+  .unblock-container {
+    bottom: 80px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .unblock-card {
+    width: 100%;
+  }
+
+  .reminder-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+}
