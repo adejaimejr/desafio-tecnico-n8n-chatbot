@@ -109,7 +109,6 @@ O projeto usa N8N em modo fila para processamento distribuído:
 - Webhooks respondem instantaneamente (não bloqueiam)
 - Workflows executam em background via workers
 - Escalável: `docker-compose up -d --scale n8n-worker=3`
-- Detalhes completos: [docs/QUEUE_MODE.md](docs/QUEUE_MODE.md)
 
 ---
 
